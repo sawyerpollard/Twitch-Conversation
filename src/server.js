@@ -2,7 +2,7 @@ const irc = require('irc');
 const Conversation = require('watson-developer-cloud/conversation/v1');
 const http = require('http');
 const credentials = require('./credentials.json');
-let { LatestMessage } = require('./latestmessage');
+let { LatestContext } = require('./latestcontext');
 
 const settings = {
   channels: [credentials.twitch.channel],
@@ -14,7 +14,7 @@ const settings = {
 
 };
 
-let latestmessage = new LatestMessage();
+let latestcontext = new LatestContext();
 
 function getModList() {
   const url = `http://tmi.twitch.tv/group/user/${credentials.twitch.nick}/chatters`;
@@ -76,15 +76,14 @@ function processResponse(err, response) {
   } else {
     client.say(credentials.twitch.channel, response.output.text[0]);
   }
-  conversation.message({ input: { text: latestmessage.getMessage() }, context: response.context }, processResponse);
+  latestcontext.setContext(response.context);
 }
 
 conversation.message({}, processResponse);
 
 client.addListener('message', (from, to, message) => {
-  latestmessage.setMessage(message);
+  conversation.message({ input: { text: message }, context: latestcontext.getContext() }, processResponse);
   console.log('IRC Recieved Message: ' + message);
-  console.log('getMessage: ' + latestmessage.getMessage());
 });
 
 client.addListener('error', (message) => {
