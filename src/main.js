@@ -38,7 +38,14 @@ function processResponse(err, response) {
 conversation.message({}, processResponse);
 
 client.addListener('message', (from, to, message) => {
-  conversation.message({ input: { text: message }, context: latestcontext.getContext() }, processResponse);
+  const parsedMessage = message.toLowerCase().trim();
+  if (parsedMessage.includes(settings.twitch.username)) {
+    conversation.message({
+      input: { text: parsedMessage },
+      context: latestcontext.getContext() },
+      processResponse);
+  }
+  console.log('Parsed Message: ' + parsedMessage);
   console.log('IRC Recieved Message: ' + message);
 });
 
