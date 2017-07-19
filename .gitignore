@@ -1,6 +1,6 @@
 node_modules/
 *.log
-credentials.json
+settings.json
 
 # OS generated files #
 ######################
