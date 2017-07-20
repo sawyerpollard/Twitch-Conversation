@@ -1,10 +1,10 @@
 const irc = require('irc');
 const Conversation = require('watson-developer-cloud/conversation/v1');
 const settings = require('./settings.json');
-const { LatestContext } = require('./latestcontext');
+const { ContextWrapper } = require('./contextwrapper');
 const { TwitchAPIGetter } = require('./twitchapigetter');
 
-const latestcontext = new LatestContext();
+const contextwrapper = new ContextWrapper();
 
 const client = new irc.Client('irc.chat.twitch.tv', settings.twitch.username, {
   channels: [`${settings.twitch.channel} ${settings.twitch.password}`],
@@ -21,6 +21,7 @@ const conversation = new Conversation({
   version_date: Conversation.VERSION_DATE_2017_04_21,
 });
 
+let fromUser = null;
 function processResponse(err, response) {
   if (err) {
     console.error(err);
@@ -28,25 +29,26 @@ function processResponse(err, response) {
   }
   console.log('Response: ' + response.output.text[0]);
   if (response.output.text[0] === 'display_online_mods') {
-    client.say(settings.twitch.channel, TwitchAPIGetter.getModList(settings.twitch.channel));
+    client.say(settings.twitch.channel, TwitchAPIGetter.getModList());
   } else {
     client.say(settings.twitch.channel, response.output.text[0]);
   }
-  latestcontext.setContext(response.context);
+  contextwrapper.setContext(fromUser, response.context);
 }
 
 conversation.message({}, processResponse);
 
 client.addListener('message', (from, to, message) => {
+  fromUser = from;
   const parsedMessage = message.toLowerCase().trim();
   if (parsedMessage.includes(settings.twitch.username)) {
     conversation.message({
-      input: { text: parsedMessage },
-      context: latestcontext.getContext() },
+      input: { text: parsedMessage.replace(settings.twitch.username, '') },
+      context: contextwrapper.getContext(from) },
       processResponse);
   }
   console.log('Parsed Message: ' + parsedMessage);
-  console.log('IRC Recieved Message: ' + message);
+  console.log(`Raw Message from ${from}: ${message}`);
 });
 
 client.addListener('error', (message) => {

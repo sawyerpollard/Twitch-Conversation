@@ -3,7 +3,7 @@ const settings = require('./settings.json');
 
 exports.TwitchAPIGetter = class TwitchAPIGetter {
   static getModList() {
-    const url = `http://tmi.twitch.tv/group/user/${settings.channel}/chatters`;
+    const url = 'http://tmi.twitch.tv/group/user/con23vb123ot/chatters';
 
     let modList = 'There are no moderators in the chat.';
 
@@ -16,8 +16,9 @@ exports.TwitchAPIGetter = class TwitchAPIGetter {
 
       res.on('end', () => {
         const modListJSON = JSON.parse(body);
-
-        if (!modListJSON.chatters.moderators.length === 1) {
+        if (modListJSON.chatters.moderator == null) {
+          modList = 'Cannot get mod list.';
+        } else if (!modListJSON.chatters.moderators.length === 1) {
           modList = 'Online Mods: ';
 
           for (let i = 0; i < modListJSON.chatters.moderators.length; i++) {
@@ -32,7 +33,6 @@ exports.TwitchAPIGetter = class TwitchAPIGetter {
     }).on('error', (e) => {
       console.log('Error!');
       console.error(e);
-      return 'Cannot get mod list.';
     });
     return modList;
   }
