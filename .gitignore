@@ -1,6 +1,9 @@
 node_modules/
 *.log
-credentials.json
+settings.json
+package-lock.json
+yarn.lock
+=4.1.1
 
 # OS generated files #
 ######################
