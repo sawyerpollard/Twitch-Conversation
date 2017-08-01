@@ -2,6 +2,9 @@
   "name": "twitch-conversation",
   "version": "1.0.0",
   "main": "main.js",
+  "scripts": {
+    "start": "node main.js"
+  },
   "repository": "https://github.com/sawyerpollard/twitch-conversation.git",
   "author": "Sawyer Pollard",
   "license": "GPL-3.0",
