@@ -38,4 +38,5 @@ Create a 'config.json' file in the 'src/' directory. Follow the format below:
 
 # Usage
 You can now start the app by typing "npm start" while in the 'src/' directory.
+
 The bot responds to Twitch messages that contain the Twitch username of the bot.
