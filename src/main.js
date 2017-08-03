@@ -31,7 +31,7 @@ function processRequest(username, message) {
         db.collection(config.mongodb.collection).update({ username },
           {
             $set: { context: response.context },
-            $setOnInsert: { username, donationTotal: 0 },
+            $setOnInsert: { username, personalDonationTotal: 0 },
           },
           { upsert: true });
       }).catch(function (err) {
@@ -49,7 +49,23 @@ function processRequest(username, message) {
           db.collection(config.mongodb.collection).findOne({ username })
             .then(function (results) {
               db.collection(config.mongodb.collection).update({ username },
-                { $set: { donationTotal: results.donationTotal + donationValue } });
+                { $set: { personalDonationTotal: results.personalDonationTotal + donationValue } });
+            });
+        }).catch(function (err) {
+          console.log('MONGODB ERROR:', err);
+          process.exit(1);
+        });
+
+      MongoClient.connect(config.mongodb.url)
+        .then(function (db) {
+          db.collection(config.mongodb.collection).update({ overallDonationTotal: { $type: 'number' } },
+            { $setOnInsert: { overallDonationTotal: 0 } }, { upsert: true })
+            .then(function () {
+              db.collection(config.mongodb.collection).findOne({ overallDonationTotal: { $type: 'number' } })
+                .then(function (results) {
+                  db.collection(config.mongodb.collection).update({ overallDonationTotal: { $type: 'number' } },
+                    { $set: { overallDonationTotal: results.overallDonationTotal + donationValue } });
+                });
             });
         }).catch(function (err) {
           console.log('MONGODB ERROR:', err);
@@ -57,12 +73,23 @@ function processRequest(username, message) {
         });
     }
 
-    if (response.output.actions === 'donation_total_request') {
+    if (response.output.actions === 'personal_donation_total_request') {
       MongoClient.connect(config.mongodb.url)
         .then(function (db) {
           db.collection(config.mongodb.collection).findOne({ username })
             .then(function (results) {
-              client.say(config.twitch.channel, `@${username} You have donated $${results.donationTotal} in your lifetime.`);
+              client.say(config.twitch.channel, `@${username} You have donated $${results.personalDonationTotal} in total.`);
+            });
+        }).catch(function (err) {
+          console.log('MONGODB ERROR:', err);
+          process.exit(1);
+        });
+    } else if (response.output.actions === 'overall_donation_total_request') {
+      MongoClient.connect(config.mongodb.url)
+        .then(function (db) {
+          db.collection(config.mongodb.collection).findOne({ overallDonationTotal: { $type: 'number' } })
+            .then(function (results) {
+              client.say(config.twitch.channel, `@${username} $${results.overallDonationTotal} has been donated to the streamer overall.`);
             });
         }).catch(function (err) {
           console.log('MONGODB ERROR:', err);
