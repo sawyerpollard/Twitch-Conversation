@@ -21,18 +21,56 @@ const client = new irc.Client('irc.chat.twitch.tv', config.twitch.username, {
 function processRequest(username, message) {
   function processResponse(err, response) {
     if (err) {
-      console.log(err);
+      console.log('CONVERSATION ERROR: ', err);
       return;
     }
-    client.say(config.twitch.channel, response.output.text[0]);
+    if (response.output.actions === 'anything_else') return;
 
-    MongoClient.connect(config.mongodb.url).then(function (db) {
-      db.collection(config.mongodb.collection).update({ username },
-        { username, context: response.context }, { upsert: true });
-    }).catch(function (err) {
-      console.log('MONGODB ERROR: ', err);
-      process.exit(1);
-    });
+    MongoClient.connect(config.mongodb.url)
+      .then(function (db) {
+        db.collection(config.mongodb.collection).update({ username },
+          {
+            $set: { context: response.context },
+            $setOnInsert: { username, donationTotal: 0 },
+          },
+          { upsert: true });
+      }).catch(function (err) {
+        console.log('MONGODB ERROR: ', err);
+        process.exit(1);
+      });
+
+    if (response.output.actions === 'donation_request') {
+      let donationValue = 0;
+      if (!(typeof response.entities[0] === 'undefined')) {
+        donationValue = Number(response.entities[0].value);
+      }
+      MongoClient.connect(config.mongodb.url)
+        .then(function (db) {
+          db.collection(config.mongodb.collection).findOne({ username })
+            .then(function (results) {
+              db.collection(config.mongodb.collection).update({ username },
+                { $set: { donationTotal: results.donationTotal + donationValue } });
+            });
+        }).catch(function (err) {
+          console.log('MONGODB ERROR:', err);
+          process.exit(1);
+        });
+    }
+
+    if (response.output.actions === 'donation_total_request') {
+      MongoClient.connect(config.mongodb.url)
+        .then(function (db) {
+          db.collection(config.mongodb.collection).findOne({ username })
+            .then(function (results) {
+              client.say(config.twitch.channel, `@${username} You have donated $${results.donationTotal} in your lifetime.`);
+            });
+        }).catch(function (err) {
+          console.log('MONGODB ERROR:', err);
+          process.exit(1);
+        });
+    } else {
+      client.say(config.twitch.channel, `@${username} ${response.output.text[0]}`);
+    }
   }
 
   MongoClient.connect(config.mongodb.url)
@@ -58,10 +96,9 @@ function processRequest(username, message) {
 
 client.addListener('message', (username, recipient, message) => {
   if (username === config.twitch.username) return;
-
   const parsedMessage = message.toLowerCase().trim();
-  if (parsedMessage.includes(config.twitch.username)) {
-    processRequest(username, parsedMessage.replace(config.twitch.username, ''));
+  if (parsedMessage.includes(`@${config.twitch.username}`)) {
+    processRequest(username, parsedMessage.replace(`@${config.twitch.username}`, ''));
   }
 });
 
