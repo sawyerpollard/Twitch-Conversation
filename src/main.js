@@ -38,7 +38,7 @@ IRCClient.addListener('message', (username, recipient, raw_message) => {
       }
       response.context.personalDonationTotal += donationValue;
 
-      // START: Set overall donation total
+// START: Set overall donation total
       MongoClient.connect(config.mongodb.url)
         .then(function (db) {
           db.collection(config.mongodb.collection).update({ overallDonationTotal: { $type: 'number' } },
@@ -47,10 +47,10 @@ IRCClient.addListener('message', (username, recipient, raw_message) => {
           console.log('MONGODB ERROR:', err);
           process.exit(1);
         });
-      // END
+// END
     }
 
-    // START: Set context
+// START: Set context
     MongoClient.connect(config.mongodb.url)
       .then(function (db) {
         db.collection(config.mongodb.collection).update({ username },
@@ -63,9 +63,9 @@ IRCClient.addListener('message', (username, recipient, raw_message) => {
         console.log('MONGODB ERROR: ', err);
         process.exit(1);
       });
-    // END
+// END
 
-    // START: Check actions and output response
+// START: Check actions and output response
     if (response.output.actions === 'overall_donation_total_request') {
       MongoClient.connect(config.mongodb.url)
         .then(function (db) {
@@ -80,10 +80,10 @@ IRCClient.addListener('message', (username, recipient, raw_message) => {
     } else {
       IRCClient.say(config.twitch.channel, `@${username} ${response.output.text[0]}`);
     }
-    // END
+// END
   }
 
-  // START: Send message to Conversation
+// START: Send message to Conversation
   MongoClient.connect(config.mongodb.url)
     .then(function (db) {
       db.collection(config.mongodb.collection).findOne({ username })
@@ -103,7 +103,7 @@ IRCClient.addListener('message', (username, recipient, raw_message) => {
       console.log('MONGODB ERROR:', err);
       process.exit(1);
     });
-  // END
+// END
 });
 // END
 
