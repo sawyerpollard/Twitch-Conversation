@@ -24,38 +24,17 @@ function processRequest(username, message) {
       console.log('CONVERSATION ERROR: ', err);
       return;
     }
+    console.log(response);
     if (response.output.actions === 'anything_else') return;
-
-    MongoClient.connect(config.mongodb.url)
-      .then(function (db) {
-        db.collection(config.mongodb.collection).update({ username },
-          {
-            $set: { context: response.context },
-            $setOnInsert: { username, personalDonationTotal: 0 },
-          },
-          { upsert: true });
-      }).catch(function (err) {
-        console.log('MONGODB ERROR: ', err);
-        process.exit(1);
-      });
 
     if (response.output.actions === 'donation_request') {
       let donationValue = 0;
       if (!(typeof response.entities[0] === 'undefined')) {
         donationValue = Number(response.entities[0].value);
       }
-      MongoClient.connect(config.mongodb.url)
-        .then(function (db) {
-          db.collection(config.mongodb.collection).findOne({ username })
-            .then(function (results) {
-              db.collection(config.mongodb.collection).update({ username },
-                { $set: { personalDonationTotal: results.personalDonationTotal + donationValue } });
-            });
-        }).catch(function (err) {
-          console.log('MONGODB ERROR:', err);
-          process.exit(1);
-        });
+      response.context.personalDonationTotal += donationValue;
 
+// START: Set overall donation total
       MongoClient.connect(config.mongodb.url)
         .then(function (db) {
           db.collection(config.mongodb.collection).update({ overallDonationTotal: { $type: 'number' } },
@@ -71,20 +50,26 @@ function processRequest(username, message) {
           console.log('MONGODB ERROR:', err);
           process.exit(1);
         });
+// END
     }
 
-    if (response.output.actions === 'personal_donation_total_request') {
-      MongoClient.connect(config.mongodb.url)
-        .then(function (db) {
-          db.collection(config.mongodb.collection).findOne({ username })
-            .then(function (results) {
-              client.say(config.twitch.channel, `@${username} You have donated $${results.personalDonationTotal} in total.`);
-            });
-        }).catch(function (err) {
-          console.log('MONGODB ERROR:', err);
-          process.exit(1);
-        });
-    } else if (response.output.actions === 'overall_donation_total_request') {
+// START: Set context
+    MongoClient.connect(config.mongodb.url)
+      .then(function (db) {
+        db.collection(config.mongodb.collection).update({ username },
+          {
+            $set: { context: response.context },
+            $setOnInsert: { username },
+          },
+          { upsert: true });
+      }).catch(function (err) {
+        console.log('MONGODB ERROR: ', err);
+        process.exit(1);
+      });
+// END
+
+// START: Check actions and output response
+    if (response.output.actions === 'overall_donation_total_request') {
       MongoClient.connect(config.mongodb.url)
         .then(function (db) {
           db.collection(config.mongodb.collection).findOne({ overallDonationTotal: { $type: 'number' } })
@@ -98,8 +83,10 @@ function processRequest(username, message) {
     } else {
       client.say(config.twitch.channel, `@${username} ${response.output.text[0]}`);
     }
+// END
   }
 
+// START: Send message to Conversation
   MongoClient.connect(config.mongodb.url)
     .then(function (db) {
       db.collection(config.mongodb.collection).findOne({ username })
@@ -119,8 +106,10 @@ function processRequest(username, message) {
       console.log('MONGODB ERROR:', err);
       process.exit(1);
     });
+// END
 }
 
+// START: Listen for IRC messages
 client.addListener('message', (username, recipient, message) => {
   if (username === config.twitch.username) return;
   const parsedMessage = message.toLowerCase().trim();
@@ -128,6 +117,7 @@ client.addListener('message', (username, recipient, message) => {
     processRequest(username, parsedMessage.replace(`@${config.twitch.username}`, ''));
   }
 });
+// END
 
 client.addListener('error', (err) => {
   console.log('IRC ERROR: ', err);
