@@ -38,14 +38,7 @@ function processRequest(username, message) {
       MongoClient.connect(config.mongodb.url)
         .then(function (db) {
           db.collection(config.mongodb.collection).update({ overallDonationTotal: { $type: 'number' } },
-            { $setOnInsert: { overallDonationTotal: 0 } }, { upsert: true })
-            .then(function () {
-              db.collection(config.mongodb.collection).findOne({ overallDonationTotal: { $type: 'number' } })
-                .then(function (results) {
-                  db.collection(config.mongodb.collection).update({ overallDonationTotal: { $type: 'number' } },
-                    { $set: { overallDonationTotal: results.overallDonationTotal + donationValue } });
-                });
-            });
+            { $inc: { overallDonationTotal: donationValue } }, { upsert: true });
         }).catch(function (err) {
           console.log('MONGODB ERROR:', err);
           process.exit(1);
