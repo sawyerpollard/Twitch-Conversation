@@ -1,9 +1,9 @@
-const irc = require('irc');
+const IRC = require('irc');
 const Conversation = require('watson-developer-cloud/conversation/v1');
 const MongoClient = require('mongodb').MongoClient;
 const config = require('./config.json');
 
-const conversation = new Conversation({
+const ConversationClient = new Conversation({
   username: config.conversation.username,
   password: config.conversation.password,
   url: config.conversation.url,
@@ -11,20 +11,24 @@ const conversation = new Conversation({
   version_date: Conversation.VERSION_DATE_2017_04_21,
 });
 
-const client = new irc.Client('irc.chat.twitch.tv', config.twitch.username, {
+const IRCClient = new IRC.Client('irc.chat.twitch.tv', config.twitch.username, {
   channels: [`${config.twitch.channel} ${config.twitch.password}`],
   debug: false,
   password: config.twitch.password,
   username: config.twitch.username,
 });
 
-function processRequest(username, message) {
+// START: Listen for IRC messages
+IRCClient.addListener('message', (username, recipient, raw_message) => {
+  let message = raw_message.toLowerCase().trim();
+  if (username === config.twitch.username || !message.includes(`@${config.twitch.username}`)) return;
+  message = message.replace(`@${config.twitch.username}`, '');
+
   function processResponse(err, response) {
     if (err) {
       console.log('CONVERSATION ERROR: ', err);
       return;
     }
-    console.log(response);
     if (response.output.actions === 'anything_else') return;
 
     if (response.output.actions === 'donation_request') {
@@ -34,7 +38,7 @@ function processRequest(username, message) {
       }
       response.context.personalDonationTotal += donationValue;
 
-// START: Set overall donation total
+      // START: Set overall donation total
       MongoClient.connect(config.mongodb.url)
         .then(function (db) {
           db.collection(config.mongodb.collection).update({ overallDonationTotal: { $type: 'number' } },
@@ -43,10 +47,10 @@ function processRequest(username, message) {
           console.log('MONGODB ERROR:', err);
           process.exit(1);
         });
-// END
+      // END
     }
 
-// START: Set context
+    // START: Set context
     MongoClient.connect(config.mongodb.url)
       .then(function (db) {
         db.collection(config.mongodb.collection).update({ username },
@@ -59,37 +63,37 @@ function processRequest(username, message) {
         console.log('MONGODB ERROR: ', err);
         process.exit(1);
       });
-// END
+    // END
 
-// START: Check actions and output response
+    // START: Check actions and output response
     if (response.output.actions === 'overall_donation_total_request') {
       MongoClient.connect(config.mongodb.url)
         .then(function (db) {
           db.collection(config.mongodb.collection).findOne({ overallDonationTotal: { $type: 'number' } })
             .then(function (results) {
-              client.say(config.twitch.channel, `@${username} $${results.overallDonationTotal} has been donated to the streamer overall.`);
+              IRCClient.say(config.twitch.channel, `@${username} $${results.overallDonationTotal} has been donated to the streamer overall.`);
             });
         }).catch(function (err) {
           console.log('MONGODB ERROR:', err);
           process.exit(1);
         });
     } else {
-      client.say(config.twitch.channel, `@${username} ${response.output.text[0]}`);
+      IRCClient.say(config.twitch.channel, `@${username} ${response.output.text[0]}`);
     }
-// END
+    // END
   }
 
-// START: Send message to Conversation
+  // START: Send message to Conversation
   MongoClient.connect(config.mongodb.url)
     .then(function (db) {
       db.collection(config.mongodb.collection).findOne({ username })
         .then(function (results) {
           if (results === null) {
-            conversation.message({
+            ConversationClient.message({
               input: { text: message },
             }, processResponse);
           } else {
-            conversation.message({
+            ConversationClient.message({
               input: { text: message },
               context: results.context,
             }, processResponse);
@@ -99,19 +103,10 @@ function processRequest(username, message) {
       console.log('MONGODB ERROR:', err);
       process.exit(1);
     });
-// END
-}
-
-// START: Listen for IRC messages
-client.addListener('message', (username, recipient, message) => {
-  if (username === config.twitch.username) return;
-  const parsedMessage = message.toLowerCase().trim();
-  if (parsedMessage.includes(`@${config.twitch.username}`)) {
-    processRequest(username, parsedMessage.replace(`@${config.twitch.username}`, ''));
-  }
+  // END
 });
 // END
 
-client.addListener('error', (err) => {
+IRCClient.addListener('error', (err) => {
   console.log('IRC ERROR: ', err);
 });
