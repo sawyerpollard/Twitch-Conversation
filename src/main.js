@@ -88,16 +88,10 @@ IRCClient.addListener('message', (username, recipient, raw_message) => {
     .then(function (db) {
       db.collection(config.mongodb.collection).findOne({ username })
         .then(function (results) {
-          if (results === null) {
-            ConversationClient.message({
-              input: { text: message },
-            }, processResponse);
-          } else {
-            ConversationClient.message({
-              input: { text: message },
-              context: results.context,
-            }, processResponse);
-          }
+          ConversationClient.message({
+            input: { text: message },
+            context: (results === null) ? {} : results.context,
+          }, processResponse);
         });
     }).catch(function (err) {
       console.log('MONGODB ERROR:', err);
