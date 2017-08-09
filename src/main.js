@@ -29,7 +29,12 @@ IRCClient.addListener('message', (username, recipient, raw_message) => {
       console.log('CONVERSATION ERROR: ', err);
       return;
     }
+    console.log(response);
     if (response.output.actions === 'anything_else') return;
+    if (!(typeof response.intents[0] === 'undefined') && (response.intents[0].confidence < config.conversation.minimum_confidence)) {
+      console.log('lowC');
+      return;
+    }
 
     if (response.output.actions === 'donation_request') {
       let donationValue = 0;
@@ -71,7 +76,7 @@ IRCClient.addListener('message', (username, recipient, raw_message) => {
         .then(function (db) {
           db.collection(config.mongodb.collection).findOne({ overallDonationTotal: { $type: 'number' } })
             .then(function (results) {
-              IRCClient.say(config.twitch.channel, `@${username} $${results.overallDonationTotal} has been donated to the streamer overall.`);
+              IRCClient.say(config.twitch.channel, `@${username} $${(results === null) ? 0 : results.overallDonationTotal} USD has been donated to the streamer overall.`);
             });
         }).catch(function (err) {
           console.log('MONGODB ERROR:', err);
