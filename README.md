@@ -1,4 +1,4 @@
-# twitch-conversation
+# Twitch Conversation
 An asynchronous NodeJS app connecting IBM Watson's Conversation and Twitch
 
 # Features
